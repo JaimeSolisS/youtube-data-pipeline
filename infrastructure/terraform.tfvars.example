@@ -1,0 +1,5 @@
+aws_region          = "us-east-1"
+
+s3_bronze_bucket    = "yt-data-pipeline-bronze-<your-suffix>"
+s3_silver_bucket    = "yt-data-pipeline-silver-<your-suffix>"
+s3_gold_bucket      = "yt-data-pipeline-gold-<your-suffix>"
