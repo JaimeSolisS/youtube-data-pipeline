@@ -5,6 +5,7 @@
 - `curl`
 - `unzip`
 - `make`
+- `python` with `boto3` (`pip install boto3`)
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.3.0
 - AWS account with an IAM user that has programmatic access
 
@@ -30,7 +31,7 @@ Then export the profile before running Terraform:
 export AWS_PROFILE=your-username
 ```
 
-Credentials are stored in `~/.aws/credentials`
+Credentials are stored in `~/.aws/credentials` and config in `~/.aws/config`.
 
 ## Setup
 
@@ -81,3 +82,11 @@ To tear down all resources:
 ```bash
 terraform destroy
 ```
+
+### 5. Upload data to S3
+
+```bash
+make upload-to-s3 bucket=yt-data-pipeline-bronze-jsolis
+```
+
+This uploads all CSV and JSON files from the `data/` folder to the bronze S3 bucket, partitioned by region.

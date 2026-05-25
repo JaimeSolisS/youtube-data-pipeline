@@ -3,3 +3,7 @@ download-kaggle:
 	mkdir data && \
 	unzip youtube-new.zip -d data && \
 	rm youtube-new.zip
+
+upload-to-s3:
+	cd scripts && \
+	python ingestion.py $(bucket)
