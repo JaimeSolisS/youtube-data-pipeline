@@ -24,6 +24,11 @@ variable "s3_gold_bucket" {
   type        = string
 }
 
+variable "athena_query_results_bucket" {
+  description = "S3 bucket for Athena query results"
+  type        = string
+}
+
 variable "lambda_function_name_json_to_parquet" {
   description = "Name of the json-to-parquet Lambda function"
   type        = string

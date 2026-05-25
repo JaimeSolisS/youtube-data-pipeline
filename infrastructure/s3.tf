@@ -21,3 +21,7 @@ resource "aws_s3_bucket" "silver" {
 resource "aws_s3_bucket" "gold" {
   bucket = var.s3_gold_bucket
 }
+
+resource "aws_s3_bucket" "athena_query_results" {
+  bucket = var.athena_query_results_bucket
+}
