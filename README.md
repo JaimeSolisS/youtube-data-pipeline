@@ -86,7 +86,7 @@ terraform destroy
 ### 5. Upload data to S3
 
 ```bash
-make upload-to-s3 bucket=yt-data-pipeline-bronze-jsolis
+make upload-to-s3 bucket=yt-data-pipeline-bronze-<your-suffix>
 ```
 
 This uploads all CSV and JSON files from the `data/` folder to the bronze S3 bucket, partitioned by region.
