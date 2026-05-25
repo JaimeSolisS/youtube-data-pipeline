@@ -9,3 +9,7 @@ output "s3_silver_bucket" {
 output "s3_gold_bucket" {
   value = aws_s3_bucket.gold.bucket
 }
+
+output "json_to_parquet_lambda" {
+  value = aws_lambda_function.json_to_parquet.function_name
+}

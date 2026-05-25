@@ -6,6 +6,11 @@ from urllib.parse import unquote_plus
 import boto3
 import awswrangler as wr
 import pandas as pd
+import logging
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -40,7 +45,7 @@ def validate_category_data(df: pd.DataFrame) -> pd.DataFrame:
     missing = required_cols - actual_cols
     if missing:
         # Try alternate column names from different API versions
-        print(f"Missing expected columns: {missing}. Available: {actual_cols}")
+        logger.warning(f"Missing expected columns: {missing}. Available: {actual_cols}")
 
     # Drop duplicate categories (same id)
     before = len(df)
@@ -48,7 +53,7 @@ def validate_category_data(df: pd.DataFrame) -> pd.DataFrame:
         df = df.drop_duplicates(subset=["id"], keep="last")
     after = len(df)
     if before != after:
-        print(f"  Removed {before - after} duplicate categories")
+        logger.warning(f"  Removed {before - after} duplicate categories")
 
     return df
 
@@ -71,7 +76,7 @@ def lambda_handler(event, context):
             bucket = s3_info["bucket"]["name"]
             key = unquote_plus(s3_info["object"]["key"])
 
-            print(f"Processing: s3://{bucket}/{key}")
+            logger.info(f"Processing: s3://{bucket}/{key}")
 
             # ── Read raw JSON ────────────────────────────────────────────
             # We use boto3 + json.loads instead of wr.s3.read_json() because
@@ -88,7 +93,7 @@ def lambda_handler(event, context):
                 # Fallback: try to normalize the entire object
                 df = pd.json_normalize(raw_data)
 
-            print(f"  Raw shape: {df.shape}")
+            logger.info(f"  Raw shape: {df.shape}")
 
             # ── Validate ─────────────────────────────────────────────────
             df = validate_category_data(df)
@@ -105,12 +110,12 @@ def lambda_handler(event, context):
                     break
             df["region"] = region
 
-            print(f"  Clean shape: {df.shape}, region: {region}")
+            logger.info(f"  Clean shape: {df.shape}, region: {region}")
 
             processed.append({"key": key, "region": region, "rows": len(df)})
 
         except Exception as e:
-            print(f"Error processing record: {e}", exc_info=True)
+            logger.error(f"Error processing record: {e}", exc_info=True)
             errors.append({"key": key if "key" in dir() else "unknown", "error": str(e)})
 
     return {
