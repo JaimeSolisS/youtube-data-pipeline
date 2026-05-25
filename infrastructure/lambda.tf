@@ -21,6 +21,7 @@ resource "aws_lambda_function" "json_to_parquet" {
   environment {
     variables = {
       S3_BUCKET_SILVER = var.s3_silver_bucket
+      SNS_ALERT_TOPIC_ARN = aws_sns_topic.pipeline_notifications.arn
     }
   }
 }

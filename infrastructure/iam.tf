@@ -42,3 +42,21 @@ resource "aws_iam_role_policy" "lambda_s3" {
     ]
   })
 }
+
+# Grants publish permissions to the SNS topic for notifications
+resource "aws_iam_role_policy" "sns" {
+  name = "${var.project_name}-lambda-sns"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["sns:Publish"]
+        Resource = aws_sns_topic.pipeline_notifications.arn
+      }
+    ]
+  })
+}
+

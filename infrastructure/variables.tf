@@ -33,3 +33,8 @@ variable "aws_wrangler_layer_arn" {
   description = "ARN of the AWS SDK for Pandas (awswrangler) Lambda layer."
   type        = string
 }
+
+variable "notification_email" {
+  description = "Email address to receive pipeline notifications via SNS"
+  type        = string
+}

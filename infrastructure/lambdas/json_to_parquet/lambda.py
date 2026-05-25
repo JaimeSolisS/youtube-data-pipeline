@@ -16,8 +16,14 @@ logger.setLevel(logging.INFO)
 # ── Config ───────────────────────────────────────────────────────────────────
 SILVER_BUCKET = os.environ["S3_BUCKET_SILVER"]
 SILVER_PATH = f"s3://{SILVER_BUCKET}/youtube/reference_data/"
+SNS_TOPIC = os.environ.get("SNS_ALERT_TOPIC_ARN", "")
 
 s3_client = boto3.client("s3")
+sns_client = boto3.client("sns")
+
+def send_alert(subject: str, message: str):
+    if SNS_TOPIC:
+        sns_client.publish(TopicArn=SNS_TOPIC, Subject=subject[:100], Message=message)
 
 
 def read_json_from_s3(bucket: str, key: str) -> dict:
@@ -78,11 +84,6 @@ def lambda_handler(event, context):
 
             logger.info(f"Processing: s3://{bucket}/{key}")
 
-            # ── Read raw JSON ────────────────────────────────────────────
-            # We use boto3 + json.loads instead of wr.s3.read_json() because
-            # the category JSON has mixed types (strings like "kind"/"etag"
-            # alongside a nested "items" array) which causes pandas to fail
-            # with: "Mixing dicts with non-Series may lead to ambiguous ordering"
             raw_data = read_json_from_s3(bucket, key)
 
             # The YouTube/Kaggle JSON has { "kind": "...", "items": [...] }
@@ -117,6 +118,14 @@ def lambda_handler(event, context):
         except Exception as e:
             logger.error(f"Error processing record: {e}", exc_info=True)
             errors.append({"key": key if "key" in dir() else "unknown", "error": str(e)})
+
+    # ── Summary ──────────────────────────────────────────────────────────
+    if errors:
+        logger.info('Sending error notification...')
+        send_alert(
+            subject="[YT Pipeline] Silver reference transform failed",
+            message=json.dumps(errors, indent=2),
+        )
 
     return {
         "statusCode": 200,

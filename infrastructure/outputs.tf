@@ -13,3 +13,7 @@ output "s3_gold_bucket" {
 output "json_to_parquet_lambda" {
   value = aws_lambda_function.json_to_parquet.function_name
 }
+
+output "pipeline_notifications_topic" {
+  value = aws_sns_topic.pipeline_notifications.name
+}

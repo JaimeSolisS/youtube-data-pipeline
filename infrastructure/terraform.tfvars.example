@@ -5,6 +5,7 @@ s3_bronze_bucket    = "yt-data-pipeline-bronze-<your-suffix>"
 s3_silver_bucket    = "yt-data-pipeline-silver-<your-suffix>"
 s3_gold_bucket      = "yt-data-pipeline-gold-<your-suffix>"
 
-lambda_function_name   = "yt-json-to-parquet"
+lambda_function_name_json_to_parquet   = "yt-json-to-parquet"
 # Find the right ARN for your region at https://aws-sdk-pandas.readthedocs.io/en/stable/layers.html
 aws_wrangler_layer_arn = "arn:aws:lambda:us-east-1:<your-account>:layer:AWSSDKPandas-Python312:16"
+notification_email     = "your-email@example.com"
