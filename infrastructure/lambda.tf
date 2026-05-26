@@ -28,6 +28,31 @@ resource "aws_lambda_function" "json_to_parquet" {
   }
 }
 
+data "archive_file" "youtube_api_ingestion" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambdas/youtube_api_ingestion"
+  output_path = "${path.module}/lambdas/zips/youtube_api_ingestion.zip"
+}
+
+resource "aws_lambda_function" "youtube_api_ingestion" {
+  function_name    = var.lambda_function_name_youtube_api_ingestion
+  role             = aws_iam_role.lambda_exec.arn  # shared role defined in iam.tf
+  runtime          = "python3.11"
+  handler          = "lambda.lambda_handler"
+  timeout          = 300
+  memory_size      = 512
+  filename         = data.archive_file.youtube_api_ingestion.output_path
+  source_code_hash = data.archive_file.youtube_api_ingestion.output_base64sha256
+
+  environment {
+    variables = {
+      S3_BUCKET_BRONZE = var.s3_bronze_bucket
+      SNS_ALERT_TOPIC_ARN = aws_sns_topic.pipeline_notifications.arn
+      YOUTUBE_API_KEY = var.youtube_api_key
+    }
+  }
+}
+
 # Allows S3 to invoke the Lambda (required in addition to the bucket notification)
 resource "aws_lambda_permission" "allow_s3" {
   statement_id  = "AllowS3Invoke"

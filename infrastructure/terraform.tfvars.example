@@ -1,12 +1,14 @@
 project_name        = "yt-data-pipeline"
 aws_region          = "us-east-1"
 
-s3_bronze_bucket    = "yt-data-pipeline-bronze-<your-suffix>"
-s3_silver_bucket    = "yt-data-pipeline-silver-<your-suffix>"
-s3_gold_bucket      = "yt-data-pipeline-gold-<your-suffix>"
+s3_bronze_bucket              = "yt-data-pipeline-bronze-<your-suffix>"
+s3_silver_bucket              = "yt-data-pipeline-silver-<your-suffix>"
+s3_gold_bucket                = "yt-data-pipeline-gold-<your-suffix>"
 athena_query_results_bucket   = "yt-data-pipeline-athena-results-<your-suffix>"
 
-lambda_function_name_json_to_parquet   = "yt-json-to-parquet"
+lambda_function_name_json_to_parquet       = "yt-json-to-parquet"
+lambda_function_name_youtube_api_ingestion = "yt-api-ingestion"
+youtube_api_key                            = "<your-youtube-api-key>"
 # Find the right ARN for your region at https://aws-sdk-pandas.readthedocs.io/en/stable/layers.html
-aws_wrangler_layer_arn = "arn:aws:lambda:us-east-1:<your-account>:layer:AWSSDKPandas-Python312:16"
-notification_email     = "your-email@example.com"
+aws_wrangler_layer_arn                     = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:31"
+notification_email                         = "your-email@example.com"

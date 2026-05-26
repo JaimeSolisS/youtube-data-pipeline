@@ -34,6 +34,17 @@ variable "lambda_function_name_json_to_parquet" {
   type        = string
 }
 
+variable "lambda_function_name_youtube_api_ingestion" {
+  description = "Name of the YouTube API ingestion Lambda function"
+  type        = string
+}
+
+variable "youtube_api_key" {
+  description = "API key for accessing the YouTube Data API"
+  type        = string
+  sensitive   = true
+}
+
 variable "aws_wrangler_layer_arn" {
   description = "ARN of the AWS SDK for Pandas (awswrangler) Lambda layer."
   type        = string
