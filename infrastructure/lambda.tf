@@ -22,6 +22,8 @@ resource "aws_lambda_function" "json_to_parquet" {
     variables = {
       S3_BUCKET_SILVER = var.s3_silver_bucket
       SNS_ALERT_TOPIC_ARN = aws_sns_topic.pipeline_notifications.arn
+      GLUE_DB = aws_glue_catalog_database.main.name
+      GLUE_SILVER_TABLE =  "silver_reference_data"
     }
   }
 }

@@ -17,6 +17,8 @@ logger.setLevel(logging.INFO)
 SILVER_BUCKET = os.environ["S3_BUCKET_SILVER"]
 SILVER_PATH = f"s3://{SILVER_BUCKET}/youtube/reference_data/"
 SNS_TOPIC = os.environ.get("SNS_ALERT_TOPIC_ARN", "")
+GLUE_DB = os.environ.get("GLUE_DB", "yt_pipeline_db")
+GLUE_TABLE = os.environ.get("GLUE_SILVER_TABLE", "silver_reference_data")
 
 s3_client = boto3.client("s3")
 sns_client = boto3.client("sns")
@@ -112,6 +114,18 @@ def lambda_handler(event, context):
             df["region"] = region
 
             logger.info(f"  Clean shape: {df.shape}, region: {region}")
+
+            # ── Write to Silver layer as Parquet ─────────────────────────
+            wr_response = wr.s3.to_parquet(
+                df=df,
+                path=SILVER_PATH,
+                dataset=True,
+                database=GLUE_DB,
+                table=GLUE_TABLE,
+                partition_cols=["region"],
+                mode="overwrite_partitions",  # Idempotent per region
+                schema_evolution=True,
+            )
 
             processed.append({"key": key, "region": region, "rows": len(df)})
 
