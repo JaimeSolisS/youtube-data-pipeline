@@ -108,10 +108,14 @@ resource "aws_iam_role_policy" "glue_s3" {
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
-      Action = ["s3:GetObject", "s3:ListBucket"]
+      Action = ["s3:GetObject","s3:PutObject","s3:ListBucket","s3:DeleteObject"]
       Resource = [
         "arn:aws:s3:::${var.s3_bronze_bucket}",
-        "arn:aws:s3:::${var.s3_bronze_bucket}/*"
+        "arn:aws:s3:::${var.s3_bronze_bucket}/*",
+        "arn:aws:s3:::${var.s3_silver_bucket}",
+        "arn:aws:s3:::${var.s3_silver_bucket}/*",
+        "arn:aws:s3:::${var.glue_scripts_bucket}",
+        "arn:aws:s3:::${var.glue_scripts_bucket}/*"
       ]
     }]
   })

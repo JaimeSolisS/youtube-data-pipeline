@@ -23,3 +23,40 @@ resource "aws_glue_crawler" "raw_statistics" {
     path = "s3://${var.s3_bronze_bucket}/youtube/raw_statistics/"
   }
 }
+
+# Uploads the ETL script to S3 so Glue can reference it
+resource "aws_s3_object" "bronze_to_silver_script" {
+  bucket     = var.glue_scripts_bucket
+  key        = "glue-scripts/bronze-to-silver.py"
+  source     = "${path.module}/glue_jobs/bronze_to_silver.py"
+  etag       = filemd5("${path.module}/glue_jobs/bronze_to_silver.py")
+  depends_on = [aws_s3_bucket.glue_scripts]
+}
+
+resource "aws_glue_job" "bronze_to_silver_script" {
+  name     = var.glue_job_name_bronze_to_silver
+  role_arn = aws_iam_role.glue_exec.arn
+
+  command {
+    name            = "glueetl"
+    script_location = "s3://${var.glue_scripts_bucket}/glue-scripts/bronze-to-silver.py"
+    python_version  = "3"
+  }
+
+  default_arguments = {
+    "--job-language"                        = "python"
+    "--bronze_bucket"                       = var.s3_bronze_bucket
+    "--bronze_database"                     = aws_glue_catalog_database.main.name
+    "--bronze_table"                        = "raw_statistics"
+    "--silver_bucket"                       = var.s3_silver_bucket
+    "--silver_database"                     = aws_glue_catalog_database.main.name
+    "--silver_table"                        = "silver_statistics"
+    "--enable-continuous-cloudwatch-log"    = "true"
+    "--enable-metrics"                      = "true"
+    "--continuous-log-logGroup"             = "/aws-glue/jobs/${var.glue_job_name_bronze_to_silver}"
+  }
+
+  glue_version      = "4.0"
+  number_of_workers = 2
+  worker_type       = "G.1X"
+}

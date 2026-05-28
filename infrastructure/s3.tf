@@ -25,3 +25,7 @@ resource "aws_s3_bucket" "gold" {
 resource "aws_s3_bucket" "athena_query_results" {
   bucket = var.athena_query_results_bucket
 }
+
+resource "aws_s3_bucket" "glue_scripts" {
+  bucket = var.glue_scripts_bucket
+}

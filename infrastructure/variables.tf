@@ -29,6 +29,16 @@ variable "athena_query_results_bucket" {
   type        = string
 }
 
+variable "glue_scripts_bucket" {
+  description = "S3 bucket for Glue scripts"
+  type        = string
+}
+
+variable "glue_job_name_bronze_to_silver" {
+  description = "Name of the Glue ETL job for video statistics"
+  type        = string
+}
+
 variable "lambda_function_name_json_to_parquet" {
   description = "Name of the json-to-parquet Lambda function"
   type        = string

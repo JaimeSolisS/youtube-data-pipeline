@@ -5,6 +5,9 @@ s3_bronze_bucket              = "yt-data-pipeline-bronze-<your-suffix>"
 s3_silver_bucket              = "yt-data-pipeline-silver-<your-suffix>"
 s3_gold_bucket                = "yt-data-pipeline-gold-<your-suffix>"
 athena_query_results_bucket   = "yt-data-pipeline-athena-results-<your-suffix>"
+glue_scripts_bucket            = "yt-data-pipeline-glue-<your-suffix>"
+
+glue_job_name_bronze_to_silver                   = "yt-bronze-to-silver-job"
 
 lambda_function_name_json_to_parquet       = "yt-json-to-parquet"
 lambda_function_name_youtube_api_ingestion = "yt-api-ingestion"
