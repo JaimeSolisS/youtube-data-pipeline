@@ -53,6 +53,16 @@ resource "aws_lambda_function" "youtube_api_ingestion" {
   }
 }
 
+resource "aws_lambda_function_event_invoke_config" "json_to_parquet" {
+  function_name                = aws_lambda_function.json_to_parquet.function_name
+  maximum_retry_attempts       = 1
+}
+
+resource "aws_lambda_function_event_invoke_config" "youtube_api_ingestion" {
+  function_name                = aws_lambda_function.youtube_api_ingestion.function_name
+  maximum_retry_attempts       = 1
+}
+
 # Allows S3 to invoke the Lambda (required in addition to the bucket notification)
 resource "aws_lambda_permission" "allow_s3" {
   statement_id  = "AllowS3Invoke"
@@ -62,7 +72,7 @@ resource "aws_lambda_permission" "allow_s3" {
   source_arn    = aws_s3_bucket.bronze.arn
 }
 
-# Fires the Lambda whenever a .json file is created under the reference data prefix
+# Fires the Lambda whenever a .jsonl file is created under the reference data prefix
 resource "aws_s3_bucket_notification" "bronze_trigger" {
   bucket = aws_s3_bucket.bronze.id
 
@@ -70,7 +80,7 @@ resource "aws_s3_bucket_notification" "bronze_trigger" {
     lambda_function_arn = aws_lambda_function.json_to_parquet.arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "youtube/raw_statistics_reference_data/"
-    filter_suffix       = ".json"
+    filter_suffix       = ".jsonl"
   }
 
   depends_on = [aws_lambda_permission.allow_s3]

@@ -53,13 +53,14 @@ def fetch_video_categories(region_code: str) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def write_to_s3(data: dict, bucket: str, key: str) -> dict:
-    body = json.dumps(data, ensure_ascii=False, indent=2)
+def write_to_s3(records: list, bucket: str, key: str) -> dict:
+    # JSONL — one video per line so Glue/Athena reads each line as a row
+    body = "\n".join(json.dumps(r, ensure_ascii=False) for r in records)
     response = s3_client.put_object(
         Bucket=bucket,
         Key=key,
         Body=body.encode("utf-8"),
-        ContentType="application/json",
+        ContentType="application/x-ndjson",
         Metadata={
             "ingestion_timestamp": datetime.now(timezone.utc).isoformat(),
             "source": "youtube_data_api_v3",
@@ -93,27 +94,25 @@ def lambda_handler(event, context):
         # ── Fetch trending videos ────────────────────────────────────────
         try:
             trending_data = fetch_trending_videos(region)
-            video_count = len(trending_data.get("items", []))
+            items = trending_data.get("items", [])
+            video_count = len(items)
 
-            # Add pipeline metadata to the raw response
-            trending_data["_pipeline_metadata"] = {
-                "ingestion_id": ingestion_id,
-                "region": region,
-                "ingestion_timestamp": now.isoformat(),
-                "video_count": video_count,
-                "source": "youtube_data_api_v3",
-            }
+            # Flatten: add pipeline metadata to each individual video record
+            records = []
+            for item in items:
+                item["_region"] = region
+                item["_ingestion_id"] = ingestion_id
+                item["_ingestion_timestamp"] = now.isoformat()
+                records.append(item)
 
-            # S3 key with Hive-style partitioning
-            # s3://bucket/youtube/raw_statistics/region=US/date=2026-03-02/hour=14/data.json
             s3_key = (
                 f"youtube/raw_statistics/"
                 f"region={region}/"
                 f"date={date_partition}/"
                 f"hour={hour_partition}/"
-                f"{ingestion_id}.json"
+                f"{ingestion_id}.jsonl"
             )
-            write_to_s3(trending_data, BUCKET, s3_key)
+            write_to_s3(records, BUCKET, s3_key)
             logger.info(f"  Wrote {video_count} videos → s3://{BUCKET}/{s3_key}")
 
         except (HTTPError, URLError) as e:
@@ -128,20 +127,19 @@ def lambda_handler(event, context):
         # ── Fetch category reference data ────────────────────────────────
         try:
             category_data = fetch_video_categories(region)
-            category_data["_pipeline_metadata"] = {
-                "ingestion_id": ingestion_id,
-                "region": region,
-                "ingestion_timestamp": now.isoformat(),
-                "source": "youtube_data_api_v3",
-            }
+            category_items = category_data.get("items", [])
+            for item in category_items:
+                item["_region"] = region
+                item["_ingestion_id"] = ingestion_id
+                item["_ingestion_timestamp"] = now.isoformat()
 
             ref_key = (
                 f"youtube/raw_statistics_reference_data/"
                 f"region={region}/"
                 f"date={date_partition}/"
-                f"{region}_category_id.json"
+                f"{region}_category_id.jsonl"
             )
-            write_to_s3(category_data, BUCKET, ref_key)
+            write_to_s3(category_items, BUCKET, ref_key)
             logger.info(f"  Wrote categories → s3://{BUCKET}/{ref_key}")
 
         except (HTTPError, URLError) as e:

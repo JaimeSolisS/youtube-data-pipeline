@@ -28,16 +28,14 @@ def send_alert(subject: str, message: str):
         sns_client.publish(TopicArn=SNS_TOPIC, Subject=subject[:100], Message=message)
 
 
-def read_json_from_s3(bucket: str, key: str) -> dict:
-    """
-    Read raw JSON from S3 using boto3 instead of awswrangler.
-    awswrangler.s3.read_json() fails on the Kaggle/YouTube category JSON
-    because it has mixed types (strings + nested arrays), which pandas
-    can't parse directly into a DataFrame.
-    """
+def read_json_from_s3(bucket: str, key: str):
     response = s3_client.get_object(Bucket=bucket, Key=key)
-    content = response["Body"].read().decode("utf-8")
-    return json.loads(content)
+    content = response["Body"].read().decode("utf-8").strip()
+    lines = content.splitlines()
+    if len(lines) > 1:
+        # JSONL — one record per line
+        return [json.loads(line) for line in lines if line.strip()]
+    return json.loads(lines[0])
 
 
 def validate_category_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -88,12 +86,13 @@ def lambda_handler(event, context):
 
             raw_data = read_json_from_s3(bucket, key)
 
-            # The YouTube/Kaggle JSON has { "kind": "...", "items": [...] }
-            # We only care about the items array
-            if "items" in raw_data and isinstance(raw_data["items"], list):
+            if isinstance(raw_data, list):
+                # JSONL — already a flat list of records
+                df = pd.json_normalize(raw_data)
+            elif "items" in raw_data and isinstance(raw_data["items"], list):
+                # Legacy single-JSON with items array
                 df = pd.json_normalize(raw_data["items"])
             else:
-                # Fallback: try to normalize the entire object
                 df = pd.json_normalize(raw_data)
 
             logger.info(f"  Raw shape: {df.shape}")
