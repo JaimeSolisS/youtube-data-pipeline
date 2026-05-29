@@ -49,6 +49,11 @@ variable "lambda_function_name_youtube_api_ingestion" {
   type        = string
 }
 
+variable "lambda_function_name_data_quality_checks" {
+  description = "Name of the data quality checks Lambda function"
+  type        = string
+}
+
 variable "youtube_api_key" {
   description = "API key for accessing the YouTube Data API"
   type        = string

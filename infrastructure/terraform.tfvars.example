@@ -11,6 +11,7 @@ glue_job_name_bronze_to_silver                   = "yt-bronze-to-silver-job"
 
 lambda_function_name_json_to_parquet       = "yt-json-to-parquet"
 lambda_function_name_youtube_api_ingestion = "yt-api-ingestion"
+lambda_function_name_data_quality_checks   = "yt-quality-check"
 youtube_api_key                            = "<your-youtube-api-key>"
 # Find the right ARN for your region at https://aws-sdk-pandas.readthedocs.io/en/stable/layers.html
 aws_wrangler_layer_arn                     = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:31"

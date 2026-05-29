@@ -53,6 +53,37 @@ resource "aws_lambda_function" "youtube_api_ingestion" {
   }
 }
 
+data "archive_file" "data_quality_checks" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambdas/data_quality_checks"
+  output_path = "${path.module}/lambdas/zips/data_quality_checks.zip"
+}
+
+resource "aws_lambda_function" "data_quality_checks" {
+  function_name    = var.lambda_function_name_data_quality_checks
+  role             = aws_iam_role.lambda_exec.arn  # shared role defined in iam.tf
+  runtime          = "python3.11"
+  handler          = "lambda.lambda_handler"
+  timeout          = 300
+  memory_size      = 512
+  filename         = data.archive_file.data_quality_checks.output_path
+  source_code_hash = data.archive_file.data_quality_checks.output_base64sha256
+  
+  layers = [var.aws_wrangler_layer_arn]
+  
+  environment {
+    variables = {
+      SNS_ALERT_TOPIC_ARN    = aws_sns_topic.pipeline_notifications.arn
+      DQ_MIN_ROW_COUNT       = 10
+      DQ_MAX_NULL_PERCENTAGE = 5.0
+      TABLES                 = "silver_statistics"
+      GLUE_DB                = aws_glue_catalog_database.main.name
+      ATHENA_WORKGROUP       = "yt-data-pipeline-workgroup"
+      ATHENA_S3_OUTPUT       = "s3://${var.athena_query_results_bucket}/results/"
+    }
+  }
+}
+
 resource "aws_lambda_function_event_invoke_config" "json_to_parquet" {
   function_name                = aws_lambda_function.json_to_parquet.function_name
   maximum_retry_attempts       = 1
