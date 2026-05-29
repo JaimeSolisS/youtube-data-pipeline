@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import os
 import logging
@@ -34,7 +36,6 @@ def fetch_trending_videos(region_code: str) -> dict:
         "key": API_KEY,
     })
     url = f"{API_BASE}/videos?{params}"
-
     req = Request(url, headers={"Accept": "application/json"})
     with urlopen(req, timeout=30) as resp:
         return json.loads(resp.read().decode("utf-8"))
@@ -47,39 +48,79 @@ def fetch_video_categories(region_code: str) -> dict:
         "key": API_KEY,
     })
     url = f"{API_BASE}/videoCategories?{params}"
-
     req = Request(url, headers={"Accept": "application/json"})
     with urlopen(req, timeout=30) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def write_to_s3(records: list, bucket: str, key: str) -> dict:
-    # JSONL — one video per line so Glue/Athena reads each line as a row
-    body = "\n".join(json.dumps(r, ensure_ascii=False) for r in records)
-    response = s3_client.put_object(
+# region is omitted — it is encoded in the S3 partition path (region=xx/)
+CSV_FIELDS = [
+    "video_id", "trending_date", "title", "channel_title", "category_id",
+    "publish_time", "tags", "views", "likes", "dislikes", "comment_count",
+    "thumbnail_link", "comments_disabled", "ratings_disabled",
+    "video_error_or_removed", "description",
+]
+
+
+def clean(text) -> str:
+    """Strip newlines and carriage returns so the value stays on one CSV row."""
+    return str(text or "").replace("\r", " ").replace("\n", " ").strip()
+
+
+def flatten_video(item: dict, now: datetime) -> dict:
+    s = item.get("snippet", {})
+    stats = item.get("statistics", {})
+    return {
+        "video_id":               item.get("id", ""),
+        "trending_date":          now.strftime("%Y-%m-%d"),
+        "title":                  clean(s.get("title")),
+        "channel_title":          clean(s.get("channelTitle")),
+        "category_id":            s.get("categoryId", ""),
+        "publish_time":           s.get("publishedAt", ""),
+        "tags":                   "|".join(s.get("tags") or []),
+        "views":                  stats.get("viewCount", "0"),
+        "likes":                  stats.get("likeCount", "0"),
+        "dislikes":               "0",
+        "comment_count":          stats.get("commentCount", "0"),
+        "thumbnail_link":         s.get("thumbnails", {}).get("default", {}).get("url", ""),
+        "comments_disabled":      "False",
+        "ratings_disabled":       "False",
+        "video_error_or_removed": "False",
+        "description":            clean(s.get("description")),
+    }
+
+
+def write_csv_to_s3(rows: list, bucket: str, key: str):
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=CSV_FIELDS)
+    writer.writeheader()
+    writer.writerows(rows)
+    s3_client.put_object(
         Bucket=bucket,
         Key=key,
-        Body=body.encode("utf-8"),
-        ContentType="application/x-ndjson",
-        Metadata={
-            "ingestion_timestamp": datetime.now(timezone.utc).isoformat(),
-            "source": "youtube_data_api_v3",
-        },
+        Body=buf.getvalue().encode("utf-8"),
+        ContentType="text/csv",
+        Metadata={"source": "youtube_data_api_v3"},
     )
-    return response
+
+
+def write_json_to_s3(data: dict, bucket: str, key: str):
+    """Single JSON object — used for category reference data."""
+    s3_client.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"),
+        ContentType="application/json",
+        Metadata={"source": "youtube_data_api_v3"},
+    )
 
 
 def send_alert(subject: str, message: str):
     if SNS_TOPIC:
-        sns_client.publish(
-            TopicArn=SNS_TOPIC,
-            Subject=subject[:100],
-            Message=message,
-        )
+        sns_client.publish(TopicArn=SNS_TOPIC, Subject=subject[:100], Message=message)
 
 
 def lambda_handler(event, context):
-
     now = datetime.now(timezone.utc)
     date_partition = now.strftime("%Y-%m-%d")
     hour_partition = now.strftime("%H")
@@ -88,68 +129,55 @@ def lambda_handler(event, context):
     results = {"success": [], "failed": []}
 
     for region in REGIONS:
-        region = region.strip().lower()
-        logger.info(f"Processing region: {region}")
+        region_lower = region.strip().lower()
+        region_upper = region.strip().upper()
+        logger.info(f"Processing region: {region_upper}")
 
-        # ── Fetch trending videos ────────────────────────────────────────
+        # ── Trending videos → CSV (one row per video) ────────────────────
         try:
-            trending_data = fetch_trending_videos(region)
+            trending_data = fetch_trending_videos(region_upper)
             items = trending_data.get("items", [])
-            video_count = len(items)
-
-            # Flatten: add pipeline metadata to each individual video record
-            records = []
-            for item in items:
-                item["_region"] = region
-                item["_ingestion_id"] = ingestion_id
-                item["_ingestion_timestamp"] = now.isoformat()
-                records.append(item)
+            rows = [flatten_video(item, now) for item in items]
 
             s3_key = (
                 f"youtube/raw_statistics/"
-                f"region={region}/"
+                f"region={region_lower}/"
                 f"date={date_partition}/"
                 f"hour={hour_partition}/"
-                f"{ingestion_id}.jsonl"
+                f"{ingestion_id}.csv"
             )
-            write_to_s3(records, BUCKET, s3_key)
-            logger.info(f"  Wrote {video_count} videos → s3://{BUCKET}/{s3_key}")
+            write_csv_to_s3(rows, BUCKET, s3_key)
+            logger.info(f"  Wrote {len(rows)} videos → s3://{BUCKET}/{s3_key}")
 
         except (HTTPError, URLError) as e:
-            logger.error(f" API error for {region} trending: {e}")
-            results["failed"].append({"region": region, "type": "trending", "error": str(e)})
+            logger.error(f"  API error for {region_upper} trending: {e}")
+            results["failed"].append({"region": region_upper, "type": "trending", "error": str(e)})
             continue
         except Exception as e:
-            logger.error(f"  Unexpected error for {region} trending: {e}")
-            results["failed"].append({"region": region, "type": "trending", "error": str(e)})
+            logger.error(f"  Unexpected error for {region_upper} trending: {e}")
+            results["failed"].append({"region": region_upper, "type": "trending", "error": str(e)})
             continue
 
-        # ── Fetch category reference data ────────────────────────────────
+        # ── Category reference data → JSON (raw API response) ────────────
         try:
-            category_data = fetch_video_categories(region)
-            category_items = category_data.get("items", [])
-            for item in category_items:
-                item["_region"] = region
-                item["_ingestion_id"] = ingestion_id
-                item["_ingestion_timestamp"] = now.isoformat()
+            category_data = fetch_video_categories(region_upper)
 
             ref_key = (
                 f"youtube/raw_statistics_reference_data/"
-                f"region={region}/"
+                f"region={region_lower}/"
                 f"date={date_partition}/"
-                f"{region}_category_id.jsonl"
+                f"{region_lower}_category_id.json"
             )
-            write_to_s3(category_items, BUCKET, ref_key)
-            logger.info(f"  Wrote categories → s3://{BUCKET}/{ref_key}")
+            write_json_to_s3(category_data, BUCKET, ref_key)
+            logger.info(f"  Wrote {len(category_data.get('items', []))} categories → s3://{BUCKET}/{ref_key}")
 
         except (HTTPError, URLError) as e:
-            logger.error(f"  API error for {region} categories: {e}")
-            results["failed"].append({"region": region, "type": "categories", "error": str(e)})
+            logger.error(f"  API error for {region_upper} categories: {e}")
+            results["failed"].append({"region": region_upper, "type": "categories", "error": str(e)})
             continue
 
-        results["success"].append(region)
+        results["success"].append(region_upper)
 
-    # ── Summary & Alerting ───────────────────────────────────────────────
     summary = (
         f"Ingestion {ingestion_id} complete. "
         f"Success: {len(results['success'])}/{len(REGIONS)} regions. "

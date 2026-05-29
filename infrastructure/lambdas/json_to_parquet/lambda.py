@@ -30,12 +30,8 @@ def send_alert(subject: str, message: str):
 
 def read_json_from_s3(bucket: str, key: str):
     response = s3_client.get_object(Bucket=bucket, Key=key)
-    content = response["Body"].read().decode("utf-8").strip()
-    lines = content.splitlines()
-    if len(lines) > 1:
-        # JSONL — one record per line
-        return [json.loads(line) for line in lines if line.strip()]
-    return json.loads(lines[0])
+    content = response["Body"].read().decode("utf-8")
+    return json.loads(content)
 
 
 def validate_category_data(df: pd.DataFrame) -> pd.DataFrame:

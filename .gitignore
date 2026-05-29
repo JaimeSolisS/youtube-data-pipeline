@@ -12,3 +12,4 @@ override.tf
 override.tf.json
 terraform.tfvars
 infrastructure/lambdas/zips
+/notebooks

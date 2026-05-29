@@ -1,6 +1,5 @@
 import sys
 import logging
-from datetime import datetime
 
 from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
@@ -50,48 +49,41 @@ logger.info(f"Silver: {SILVER_DB}.{SILVER_TABLE} → {SILVER_PATH}")
 
 
 # ── Step 1: Read from Bronze ────────────────────────────────────────────────
-logger.info("Reading from Bronze S3 directly...")
+logger.info("Reading CSV files from Bronze...")
 
-# Read JSON files directly, bypassing catalog schema enforcement.
 # basePath lets Spark detect region=/ date=/ hour=/ as partition columns.
 region_paths = [f"{BRONZE_BASE}region={r}/" for r in REGIONS]
-df = spark.read.option("basePath", BRONZE_BASE).json(region_paths)
+df = spark.read.option("header", "true").option("basePath", BRONZE_BASE).csv(region_paths)
 
 initial_count = df.count()
 logger.info(f"Bronze records read: {initial_count}")
-logger.info(f"Schema: {df.dtypes}")
+logger.info(f"Columns: {df.columns}")
 
 if initial_count == 0:
     logger.info("No new records to process. Committing empty job.")
 else:
     # ── Step 2: Schema Enforcement ──────────────────────────────────────────
-    logger.info("Enforcing schema and casting types...")
-    logger.info(f"Columns: {df.columns}")
-
-    columns = set(df.columns)
-
-    if "snippet" in columns and "statistics" in columns:
-        # YouTube API JSON format — Glue reads nested JSON as structs
-        logger.info("Detected YouTube API nested struct format — flattening...")
-        df = df.select(
-            F.col("id").alias("video_id"),
-            F.lit(datetime.utcnow().strftime("%y.%d.%m")).alias("trending_date"),
-            F.col("snippet.title").alias("title"),
-            F.col("snippet.channelTitle").alias("channel_title"),
-            F.col("snippet.categoryId").cast(LongType()).alias("category_id"),
-            F.col("snippet.publishedAt").alias("publish_time"),
-            F.concat_ws("|", F.col("snippet.tags")).alias("tags"),
-            F.col("statistics.viewCount").cast(LongType()).alias("views"),
-            F.col("statistics.likeCount").cast(LongType()).alias("likes"),
-            F.lit(0).cast(LongType()).alias("dislikes"),
-            F.col("statistics.commentCount").cast(LongType()).alias("comment_count"),
-            F.col("snippet.thumbnails.default.url").alias("thumbnail_link"),
-            F.lit(False).alias("comments_disabled"),
-            F.lit(False).alias("ratings_disabled"),
-            F.lit(False).alias("video_error_or_removed"),
-            F.col("snippet.description").alias("description"),
-            F.col("region"),
-        )
+    # CSV columns are all strings — cast numeric types.
+    logger.info("Casting CSV column types...")
+    df = df.select(
+        F.col("video_id"),
+        F.to_date(F.col("trending_date")).alias("trending_date"),
+        F.col("title"),
+        F.col("channel_title"),
+        F.col("category_id").cast(LongType()),
+        F.col("publish_time"),
+        F.col("tags"),
+        F.col("views").cast(LongType()),
+        F.col("likes").cast(LongType()),
+        F.col("dislikes").cast(LongType()),
+        F.col("comment_count").cast(LongType()),
+        F.col("thumbnail_link"),
+        F.col("comments_disabled"),
+        F.col("ratings_disabled"),
+        F.col("video_error_or_removed"),
+        F.col("description"),
+        F.col("region"),
+    )
     
 
     # ── Step 3: Data Cleansing ──────────────────────────────────────────────
@@ -103,16 +95,7 @@ else:
     # Standardize region codes to lower
     df = df.withColumn("region", F.lower(F.trim(F.col("region"))))
 
-    # Parse trending_date from Kaggle format (YY.DD.MM) to proper date
-    df = df.withColumn(
-        "trending_date_parsed",
-        F.when(
-            F.col("trending_date").rlike(r"^\d{2}\.\d{2}\.\d{2}$"),
-            F.to_date(F.col("trending_date"), "yy.dd.MM")
-        ).otherwise(
-            F.to_date(F.col("trending_date"))
-        )
-    )
+    df = df.withColumnRenamed("trending_date", "trending_date_parsed")
 
     # Fill nulls for numeric columns with 0
     numeric_cols = ["views", "likes", "dislikes", "comment_count"]

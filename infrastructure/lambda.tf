@@ -80,7 +80,7 @@ resource "aws_s3_bucket_notification" "bronze_trigger" {
     lambda_function_arn = aws_lambda_function.json_to_parquet.arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "youtube/raw_statistics_reference_data/"
-    filter_suffix       = ".jsonl"
+    filter_suffix       = ".json"
   }
 
   depends_on = [aws_lambda_permission.allow_s3]
