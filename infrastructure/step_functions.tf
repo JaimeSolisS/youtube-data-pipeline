@@ -139,13 +139,3 @@ resource "aws_scheduler_schedule" "pipeline" {
   }
 }
 
-
-# ── Outputs ───────────────────────────────────────────────────────────────────
-
-output "state_machine_arn" {
-  value = aws_sfn_state_machine.pipeline.arn
-}
-
-output "pipeline_schedule" {
-  value = "Every 8 hours via EventBridge Scheduler: ${aws_scheduler_schedule.pipeline.name}"
-}
