@@ -15,16 +15,19 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # ── AWS Clients ──────────────────────────────────────────────────────────────
-s3_client = boto3.client("s3")
-sns_client = boto3.client("sns")
+s3_client   = boto3.client("s3")
+sns_client  = boto3.client("sns")
+glue_client = boto3.client("glue")
 
 # ── Config ───────────────────────────────────────────────────────────────────
-API_KEY = os.environ["YOUTUBE_API_KEY"]
-BUCKET = os.environ["S3_BUCKET_BRONZE"]
-REGIONS = "US,FR,JP,MX".split(",")
-SNS_TOPIC = os.environ.get("SNS_ALERT_TOPIC_ARN", "")
-API_BASE = "https://www.googleapis.com/youtube/v3"
-MAX_RESULTS = 50
+API_KEY      = os.environ["YOUTUBE_API_KEY"]
+BUCKET       = os.environ["S3_BUCKET_BRONZE"]
+REGIONS      = "US,FR,JP,MX".split(",")
+SNS_TOPIC    = os.environ.get("SNS_ALERT_TOPIC_ARN", "")
+GLUE_DB      = os.environ.get("GLUE_DB", "")
+CRAWLER_NAME = os.environ.get("GLUE_CRAWLER_NAME", "")
+API_BASE     = "https://www.googleapis.com/youtube/v3"
+MAX_RESULTS  = 50
 
 
 def fetch_trending_videos(region_code: str) -> dict:
@@ -115,6 +118,32 @@ def write_json_to_s3(data: dict, bucket: str, key: str):
     )
 
 
+def ensure_bronze_cataloged():
+    """Start the raw_statistics crawler if its table doesn't exist yet."""
+    if not GLUE_DB or not CRAWLER_NAME:
+        logger.warning("GLUE_DB or GLUE_CRAWLER_NAME not set — skipping catalog check")
+        return
+
+    try:
+        glue_client.get_table(DatabaseName=GLUE_DB, Name="raw_statistics")
+        logger.info("Bronze table raw_statistics already exists — skipping crawler")
+        return
+    except glue_client.exceptions.EntityNotFoundException:
+        logger.info("Bronze table raw_statistics not found — starting crawler...")
+
+    glue_client.start_crawler(Name=CRAWLER_NAME)
+
+    import time
+    while True:
+        state = glue_client.get_crawler(Name=CRAWLER_NAME)["Crawler"]["State"]
+        logger.info(f"Crawler state: {state}")
+        if state == "READY":
+            break
+        time.sleep(15)
+
+    logger.info("Crawler finished — raw_statistics table is now cataloged")
+
+
 def send_alert(subject: str, message: str):
     if SNS_TOPIC:
         sns_client.publish(TopicArn=SNS_TOPIC, Subject=subject[:100], Message=message)
@@ -177,6 +206,8 @@ def lambda_handler(event, context):
             continue
 
         results["success"].append(region_upper)
+
+    ensure_bronze_cataloged()
 
     summary = (
         f"Ingestion {ingestion_id} complete. "

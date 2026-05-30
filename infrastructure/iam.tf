@@ -67,7 +67,9 @@ resource "aws_iam_role_policy" "lambda_s3" {
           "glue:UpdateTable",
           "glue:GetPartitions",
           "glue:CreatePartition",
-        "glue:BatchCreatePartition"]
+          "glue:BatchCreatePartition",
+          "glue:GetCrawler",
+          "glue:StartCrawler"]
         Resource = [
           "*"
         ]

@@ -49,6 +49,8 @@ resource "aws_lambda_function" "youtube_api_ingestion" {
       S3_BUCKET_BRONZE    = var.s3_bronze_bucket
       SNS_ALERT_TOPIC_ARN = aws_sns_topic.pipeline_notifications.arn
       YOUTUBE_API_KEY     = var.youtube_api_key
+      GLUE_DB             = aws_glue_catalog_database.main.name
+      GLUE_CRAWLER_NAME   = aws_glue_crawler.raw_statistics.name
     }
   }
 }
