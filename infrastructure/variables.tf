@@ -74,3 +74,8 @@ variable "notification_email" {
   description = "Email address to receive pipeline notifications via SNS"
   type        = string
 }
+
+variable "pipeline_schedule_start_date" {
+  description = "RFC3339 UTC timestamp for the first pipeline run (e.g. 2026-05-30T01:00:00Z)"
+  type        = string
+}

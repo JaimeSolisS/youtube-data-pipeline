@@ -8,6 +8,7 @@ athena_query_results_bucket   = "yt-data-pipeline-athena-results-<your-suffix>"
 glue_scripts_bucket            = "yt-data-pipeline-glue-<your-suffix>"
 
 glue_job_name_bronze_to_silver                   = "yt-bronze-to-silver-job"
+pipeline_schedule_start_date         = "2026-05-30T01:00:00Z"
 glue_job_name_silver_to_gold                     = "yt-silver-to-gold-job"
 
 lambda_function_name_json_to_parquet       = "yt-json-to-parquet"

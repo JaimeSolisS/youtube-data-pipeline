@@ -122,11 +122,11 @@ resource "aws_scheduler_schedule" "pipeline" {
   group_name = "default"
 
   flexible_time_window {
-    mode                      = "FLEXIBLE"
-    maximum_window_in_minutes = 10
+    mode = "OFF"
   }
 
   schedule_expression = "rate(8 hours)"
+  start_date          = var.pipeline_schedule_start_date
 
   target {
     arn      = aws_sfn_state_machine.pipeline.arn
