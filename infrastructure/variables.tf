@@ -39,6 +39,11 @@ variable "glue_job_name_bronze_to_silver" {
   type        = string
 }
 
+variable "glue_job_name_silver_to_gold" {
+  description = "Name of the Glue ETL job that builds gold aggregation tables"
+  type        = string
+}
+
 variable "lambda_function_name_json_to_parquet" {
   description = "Name of the json-to-parquet Lambda function"
   type        = string

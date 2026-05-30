@@ -135,6 +135,8 @@ resource "aws_iam_role_policy" "glue_s3" {
         "arn:aws:s3:::${var.s3_bronze_bucket}/*",
         "arn:aws:s3:::${var.s3_silver_bucket}",
         "arn:aws:s3:::${var.s3_silver_bucket}/*",
+        "arn:aws:s3:::${var.s3_gold_bucket}",
+        "arn:aws:s3:::${var.s3_gold_bucket}/*",
         "arn:aws:s3:::${var.glue_scripts_bucket}",
         "arn:aws:s3:::${var.glue_scripts_bucket}/*"
       ]

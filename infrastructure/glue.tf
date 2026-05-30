@@ -33,6 +33,41 @@ resource "aws_s3_object" "bronze_to_silver_script" {
   depends_on = [aws_s3_bucket.glue_scripts]
 }
 
+resource "aws_s3_object" "silver_to_gold_script" {
+  bucket     = var.glue_scripts_bucket
+  key        = "glue-scripts/silver-to-gold.py"
+  source     = "${path.module}/glue_jobs/silver_to_gold.py"
+  etag       = filemd5("${path.module}/glue_jobs/silver_to_gold.py")
+  depends_on = [aws_s3_bucket.glue_scripts]
+}
+
+resource "aws_glue_job" "silver_to_gold" {
+  name     = var.glue_job_name_silver_to_gold
+  role_arn = aws_iam_role.glue_exec.arn
+
+  command {
+    name            = "glueetl"
+    script_location = "s3://${var.glue_scripts_bucket}/glue-scripts/silver-to-gold.py"
+    python_version  = "3"
+  }
+
+  default_arguments = {
+    "--job-language"                     = "python"
+    "--silver_database"                  = aws_glue_catalog_database.main.name
+    "--silver_statistics_table"          = "silver_statistics"
+    "--silver_reference_table"           = "silver_reference_data"
+    "--gold_bucket"                      = var.s3_gold_bucket
+    "--gold_database"                    = aws_glue_catalog_database.main.name
+    "--enable-continuous-cloudwatch-log" = "true"
+    "--enable-metrics"                   = "true"
+    "--continuous-log-logGroup"          = "/aws-glue/jobs/${var.glue_job_name_silver_to_gold}"
+  }
+
+  glue_version      = "4.0"
+  number_of_workers = 2
+  worker_type       = "G.1X"
+}
+
 resource "aws_glue_job" "bronze_to_silver_script" {
   name     = var.glue_job_name_bronze_to_silver
   role_arn = aws_iam_role.glue_exec.arn
