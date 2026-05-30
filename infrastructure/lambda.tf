@@ -8,7 +8,7 @@ data "archive_file" "json_to_parquet" {
 # Lambda function — awswrangler and pandas are provided via the managed layer
 resource "aws_lambda_function" "json_to_parquet" {
   function_name    = var.lambda_function_name_json_to_parquet
-  role             = aws_iam_role.lambda_exec.arn  # shared role defined in iam.tf
+  role             = aws_iam_role.lambda_exec.arn # shared role defined in iam.tf
   runtime          = "python3.11"
   handler          = "lambda.lambda_handler"
   timeout          = 300
@@ -20,10 +20,10 @@ resource "aws_lambda_function" "json_to_parquet" {
 
   environment {
     variables = {
-      S3_BUCKET_SILVER = var.s3_silver_bucket
+      S3_BUCKET_SILVER    = var.s3_silver_bucket
       SNS_ALERT_TOPIC_ARN = aws_sns_topic.pipeline_notifications.arn
-      GLUE_DB = aws_glue_catalog_database.main.name
-      GLUE_SILVER_TABLE =  "silver_reference_data"
+      GLUE_DB             = aws_glue_catalog_database.main.name
+      GLUE_SILVER_TABLE   = "silver_reference_data"
     }
   }
 }
@@ -36,7 +36,7 @@ data "archive_file" "youtube_api_ingestion" {
 
 resource "aws_lambda_function" "youtube_api_ingestion" {
   function_name    = var.lambda_function_name_youtube_api_ingestion
-  role             = aws_iam_role.lambda_exec.arn  # shared role defined in iam.tf
+  role             = aws_iam_role.lambda_exec.arn # shared role defined in iam.tf
   runtime          = "python3.11"
   handler          = "lambda.lambda_handler"
   timeout          = 300
@@ -46,9 +46,9 @@ resource "aws_lambda_function" "youtube_api_ingestion" {
 
   environment {
     variables = {
-      S3_BUCKET_BRONZE = var.s3_bronze_bucket
+      S3_BUCKET_BRONZE    = var.s3_bronze_bucket
       SNS_ALERT_TOPIC_ARN = aws_sns_topic.pipeline_notifications.arn
-      YOUTUBE_API_KEY = var.youtube_api_key
+      YOUTUBE_API_KEY     = var.youtube_api_key
     }
   }
 }
@@ -61,16 +61,16 @@ data "archive_file" "data_quality_checks" {
 
 resource "aws_lambda_function" "data_quality_checks" {
   function_name    = var.lambda_function_name_data_quality_checks
-  role             = aws_iam_role.lambda_exec.arn  # shared role defined in iam.tf
+  role             = aws_iam_role.lambda_exec.arn # shared role defined in iam.tf
   runtime          = "python3.11"
   handler          = "lambda.lambda_handler"
   timeout          = 300
   memory_size      = 512
   filename         = data.archive_file.data_quality_checks.output_path
   source_code_hash = data.archive_file.data_quality_checks.output_base64sha256
-  
+
   layers = [var.aws_wrangler_layer_arn]
-  
+
   environment {
     variables = {
       SNS_ALERT_TOPIC_ARN    = aws_sns_topic.pipeline_notifications.arn
@@ -85,13 +85,13 @@ resource "aws_lambda_function" "data_quality_checks" {
 }
 
 resource "aws_lambda_function_event_invoke_config" "json_to_parquet" {
-  function_name                = aws_lambda_function.json_to_parquet.function_name
-  maximum_retry_attempts       = 1
+  function_name          = aws_lambda_function.json_to_parquet.function_name
+  maximum_retry_attempts = 1
 }
 
 resource "aws_lambda_function_event_invoke_config" "youtube_api_ingestion" {
-  function_name                = aws_lambda_function.youtube_api_ingestion.function_name
-  maximum_retry_attempts       = 1
+  function_name          = aws_lambda_function.youtube_api_ingestion.function_name
+  maximum_retry_attempts = 1
 }
 
 # Allows S3 to invoke the Lambda (required in addition to the bucket notification)

@@ -79,16 +79,16 @@ resource "aws_glue_job" "bronze_to_silver_script" {
   }
 
   default_arguments = {
-    "--job-language"                        = "python"
-    "--bronze_bucket"                       = var.s3_bronze_bucket
-    "--bronze_database"                     = aws_glue_catalog_database.main.name
-    "--bronze_table"                        = "raw_statistics"
-    "--silver_bucket"                       = var.s3_silver_bucket
-    "--silver_database"                     = aws_glue_catalog_database.main.name
-    "--silver_table"                        = "silver_statistics"
-    "--enable-continuous-cloudwatch-log"    = "true"
-    "--enable-metrics"                      = "true"
-    "--continuous-log-logGroup"             = "/aws-glue/jobs/${var.glue_job_name_bronze_to_silver}"
+    "--job-language"                     = "python"
+    "--bronze_bucket"                    = var.s3_bronze_bucket
+    "--bronze_database"                  = aws_glue_catalog_database.main.name
+    "--bronze_table"                     = "raw_statistics"
+    "--silver_bucket"                    = var.s3_silver_bucket
+    "--silver_database"                  = aws_glue_catalog_database.main.name
+    "--silver_table"                     = "silver_statistics"
+    "--enable-continuous-cloudwatch-log" = "true"
+    "--enable-metrics"                   = "true"
+    "--continuous-log-logGroup"          = "/aws-glue/jobs/${var.glue_job_name_bronze_to_silver}"
   }
 
   glue_version      = "4.0"

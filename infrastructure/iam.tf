@@ -32,8 +32,8 @@ resource "aws_iam_role_policy" "lambda_s3" {
         Resource = "arn:aws:s3:::${var.s3_bronze_bucket}/*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
         Resource = [
           "arn:aws:s3:::${var.s3_silver_bucket}",
           "arn:aws:s3:::${var.s3_silver_bucket}/*",
@@ -44,8 +44,8 @@ resource "aws_iam_role_policy" "lambda_s3" {
         ]
       },
       {
-        Effect   = "Allow"
-        Action   = [
+        Effect = "Allow"
+        Action = [
           "s3:GetObject",
           "s3:PutObject",
           "s3:ListBucket",
@@ -59,28 +59,28 @@ resource "aws_iam_role_policy" "lambda_s3" {
         ]
       },
       {
-        Effect   = "Allow"
-        Action   = ["glue:GetTable",
-                "glue:GetDatabase",
-                "glue:CreateTable",
-                "glue:UpdateTable",
-                "glue:GetPartitions",
-                "glue:CreatePartition",
-                "glue:BatchCreatePartition"]
+        Effect = "Allow"
+        Action = ["glue:GetTable",
+          "glue:GetDatabase",
+          "glue:CreateTable",
+          "glue:UpdateTable",
+          "glue:GetPartitions",
+          "glue:CreatePartition",
+        "glue:BatchCreatePartition"]
         Resource = [
           "*"
         ]
-      }, 
+      },
       {
-        Effect   = "Allow"
-        Action   = ["athena:GetWorkGroup",
-                "athena:StartQueryExecution",
-                "athena:GetQueryExecution",
-                "athena:GetQueryResults"]
+        Effect = "Allow"
+        Action = ["athena:GetWorkGroup",
+          "athena:StartQueryExecution",
+          "athena:GetQueryExecution",
+        "athena:GetQueryResults"]
         Resource = [
           "*"
         ]
-      }, 
+      },
     ]
   })
 }
@@ -129,7 +129,7 @@ resource "aws_iam_role_policy" "glue_s3" {
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
-      Action = ["s3:GetObject","s3:PutObject","s3:ListBucket","s3:DeleteObject"]
+      Action = ["s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:DeleteObject"]
       Resource = [
         "arn:aws:s3:::${var.s3_bronze_bucket}",
         "arn:aws:s3:::${var.s3_bronze_bucket}/*",

@@ -5,7 +5,7 @@ resource "aws_s3_bucket" "bronze" {
 resource "aws_s3_bucket_lifecycle_configuration" "bronzeGlacier" {
   bucket = aws_s3_bucket.bronze.bucket
   rule {
-    id = "move-old-objects-to-glacier"
+    id     = "move-old-objects-to-glacier"
     status = "Enabled"
     filter {}
     transition {
