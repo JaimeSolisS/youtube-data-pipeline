@@ -83,6 +83,9 @@ s3_gold_bucket              = "yt-data-pipeline-gold-<your-suffix>"
 athena_query_results_bucket = "yt-data-pipeline-athena-results-<your-suffix>"
 glue_scripts_bucket         = "yt-data-pipeline-glue-<your-suffix>"
 
+# Comma-separated YouTube region codes to ingest
+regions = "US,FR,JP,MX"
+
 glue_job_name_bronze_to_silver = "yt-bronze-to-silver-job"
 glue_job_name_silver_to_gold   = "yt-silver-to-gold-job"
 
@@ -172,7 +175,7 @@ The full pipeline is orchestrated by an AWS Step Functions state machine (`yt-da
 
 **Execution flow:**
 
-1. **IngestFromYouTubeAPI** — Lambda fetches trending videos (CSV) and category data (JSON) for US, FR, JP, MX
+1. **IngestFromYouTubeAPI** — Lambda fetches trending videos (CSV) and category data (JSON) for all configured `regions`
 2. **WaitForS3Consistency** — 10-second wait for S3 eventual consistency
 3. **ProcessInParallel** — two branches run concurrently:
    - `TransformReferenceData` — Lambda converts category JSON → Parquet in silver

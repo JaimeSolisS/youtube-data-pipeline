@@ -30,6 +30,7 @@ args = getResolvedOptions(sys.argv, [
     "silver_bucket",
     "silver_database",
     "silver_table",
+    "regions",
 ])
 
 sc = SparkContext()
@@ -47,7 +48,7 @@ SILVER_DB = args["silver_database"]
 SILVER_TABLE = args["silver_table"]
 SILVER_PATH = f"s3://{SILVER_BUCKET}/youtube/statistics/"
 BRONZE_BASE = f"s3://{BRONZE_BUCKET}/youtube/raw_statistics/"
-REGIONS = ["us", "fr", "jp", "mx"]
+REGIONS     = [r.strip().lower() for r in args["regions"].split(",")]
 
 logger.info(f"Bronze: {BRONZE_BASE}")
 logger.info(f"Silver: {SILVER_DB}.{SILVER_TABLE} → {SILVER_PATH}")

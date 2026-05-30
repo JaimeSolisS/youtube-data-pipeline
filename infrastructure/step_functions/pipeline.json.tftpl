@@ -81,7 +81,8 @@
                   "--bronze_table": "raw_statistics",
                   "--silver_bucket": "${silver_bucket}",
                   "--silver_database": "${glue_database}",
-                  "--silver_table": "silver_statistics"
+                  "--silver_table": "silver_statistics",
+                  "--regions": "${regions}"
                 }
               },
               "ResultPath": "$.glue_bronze_silver_result",

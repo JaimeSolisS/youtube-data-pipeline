@@ -51,6 +51,7 @@ resource "aws_lambda_function" "youtube_api_ingestion" {
       YOUTUBE_API_KEY     = var.youtube_api_key
       GLUE_DB             = aws_glue_catalog_database.main.name
       GLUE_CRAWLER_NAME   = aws_glue_crawler.raw_statistics.name
+      REGIONS             = var.regions
     }
   }
 }

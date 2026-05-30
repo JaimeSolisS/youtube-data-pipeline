@@ -22,7 +22,7 @@ glue_client = boto3.client("glue")
 # ── Config ───────────────────────────────────────────────────────────────────
 API_KEY      = os.environ["YOUTUBE_API_KEY"]
 BUCKET       = os.environ["S3_BUCKET_BRONZE"]
-REGIONS      = "US,FR,JP,MX".split(",")
+REGIONS      = [r.strip() for r in os.environ.get("REGIONS", "US,FR,JP,MX").split(",")]
 SNS_TOPIC    = os.environ.get("SNS_ALERT_TOPIC_ARN", "")
 GLUE_DB      = os.environ.get("GLUE_DB", "")
 CRAWLER_NAME = os.environ.get("GLUE_CRAWLER_NAME", "")

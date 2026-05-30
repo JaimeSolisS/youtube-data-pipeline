@@ -7,7 +7,8 @@ s3_gold_bucket                = "yt-data-pipeline-gold-<your-suffix>"
 athena_query_results_bucket   = "yt-data-pipeline-athena-results-<your-suffix>"
 glue_scripts_bucket            = "yt-data-pipeline-glue-<your-suffix>"
 
-glue_job_name_bronze_to_silver                   = "yt-bronze-to-silver-job"
+regions                              = "US,FR,JP,MX"
+glue_job_name_bronze_to_silver       = "yt-bronze-to-silver-job"
 pipeline_schedule_start_date         = "<RFC3339-UTC-timestamp e.g. 2026-05-30T01:00:00Z>"
 glue_job_name_silver_to_gold                     = "yt-silver-to-gold-job"
 

@@ -80,6 +80,7 @@ resource "aws_sfn_state_machine" "pipeline" {
     bronze_bucket             = var.s3_bronze_bucket
     silver_bucket             = var.s3_silver_bucket
     gold_bucket               = var.s3_gold_bucket
+    regions                   = var.regions
     exec_id_ref               = "$$.Execution.Id"
   })
 }

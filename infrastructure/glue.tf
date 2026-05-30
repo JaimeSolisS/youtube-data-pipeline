@@ -86,6 +86,7 @@ resource "aws_glue_job" "bronze_to_silver_script" {
     "--silver_bucket"                    = var.s3_silver_bucket
     "--silver_database"                  = aws_glue_catalog_database.main.name
     "--silver_table"                     = "silver_statistics"
+    "--regions"                          = var.regions
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-metrics"                   = "true"
     "--continuous-log-logGroup"          = "/aws-glue/jobs/${var.glue_job_name_bronze_to_silver}"

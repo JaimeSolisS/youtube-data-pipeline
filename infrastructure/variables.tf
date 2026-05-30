@@ -75,6 +75,12 @@ variable "notification_email" {
   type        = string
 }
 
+variable "regions" {
+  description = "Comma-separated list of YouTube region codes to ingest (e.g. US,FR,JP,MX)"
+  type        = string
+  default     = "US,FR,JP,MX"
+}
+
 variable "pipeline_schedule_start_date" {
   description = "RFC3339 UTC timestamp for the first pipeline run (e.g. 2026-05-30T01:00:00Z)"
   type        = string
