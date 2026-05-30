@@ -1,14 +1,43 @@
 # YouTube Data Pipeline
 
+A serverless medallion-architecture data pipeline on AWS that ingests YouTube trending data, transforms it through bronze → silver → gold layers, runs data quality checks, and aggregates analytics — orchestrated end-to-end by Step Functions on an 8-hour schedule.
+
+## Architecture
+
+```
+YouTube API
+    │
+    ▼
+Lambda (youtube_api_ingestion)
+    ├── Trending videos  → S3 Bronze (CSV, partitioned by region/date/hour)
+    └── Category data   → S3 Bronze (JSON, partitioned by region/date)
+                              │
+              ┌───────────────┴───────────────┐
+              ▼                               ▼
+    Lambda (json_to_parquet)       Glue Job (bronze → silver)
+    Category JSON → Parquet        CSV → cleaned Parquet
+    S3 Silver                      S3 Silver
+              └───────────────┬───────────────┘
+                              ▼
+                   Lambda (data_quality_checks)
+                   Athena queries on silver tables
+                              │
+                    ┌─────────┴─────────┐
+                  PASS                FAIL
+                    │                  │
+                    ▼                  ▼
+          Glue Job (silver → gold)   SNS alert
+          3 aggregation tables
+          S3 Gold
+
+All steps orchestrated by AWS Step Functions, triggered every 8 hours via EventBridge Scheduler.
+```
+
 ## Prerequisites
 
-- `curl`
-- `unzip`
-- `make`
-- `python` with `boto3` (`pip install boto3`)
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.3.0
 - AWS account with an IAM user that has programmatic access
-- YouTube Data API v3 key — create one at [console.cloud.google.com](https://console.cloud.google.com) under APIs & Services → Credentials. Add it to `infrastructure/terraform.tfvars` (see step 3):
+- YouTube Data API v3 key — create one at [console.cloud.google.com](https://console.cloud.google.com) under APIs & Services → Credentials
 
 ### Configure AWS credentials
 
@@ -18,17 +47,10 @@
 aws configure
 ```
 
-You will be prompted for your Access Key ID, Secret Access Key, and default region.
-
 **Option B — named profile**
 
 ```bash
 aws configure --profile your-username
-```
-
-Then export the profile before running Terraform:
-
-```bash
 export AWS_PROFILE=your-username
 ```
 
@@ -43,17 +65,7 @@ git clone https://github.com/JaimeSolisS/youtube-data-pipeline.git
 cd youtube-data-pipeline
 ```
 
-### 2. Download the dataset
-
-```bash
-make download-kaggle
-```
-
-This will download and extract the dataset into a `data/` folder. The dataset includes trending video CSVs and category JSON files for 10 countries: CA, DE, FR, GB, IN, JP, KR, MX, RU, US.
-
-### 3. Configure Terraform
-
-Copy the example file and fill in your values:
+### 2. Configure Terraform
 
 ```bash
 cp infrastructure/terraform.tfvars.example infrastructure/terraform.tfvars
@@ -71,9 +83,15 @@ s3_gold_bucket              = "yt-data-pipeline-gold-<your-suffix>"
 athena_query_results_bucket = "yt-data-pipeline-athena-results-<your-suffix>"
 glue_scripts_bucket         = "yt-data-pipeline-glue-<your-suffix>"
 
-glue_job_name_bronze_to_silver             = "yt-bronze-to-silver-job"
+glue_job_name_bronze_to_silver = "yt-bronze-to-silver-job"
+glue_job_name_silver_to_gold   = "yt-silver-to-gold-job"
+
+# RFC3339 UTC timestamp — first pipeline run (e.g. 7 PM Mexico City = 01:00 UTC next day)
+pipeline_schedule_start_date = "2026-05-30T01:00:00Z"
+
 lambda_function_name_json_to_parquet       = "yt-json-to-parquet"
 lambda_function_name_youtube_api_ingestion = "yt-api-ingestion"
+lambda_function_name_data_quality_checks   = "yt-quality-check"
 
 youtube_api_key = "<your-youtube-api-key>"
 
@@ -83,7 +101,7 @@ aws_wrangler_layer_arn = "arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPand
 notification_email = "your-email@example.com"
 ```
 
-### 4. Deploy infrastructure
+### 3. Deploy infrastructure
 
 ```bash
 cd infrastructure
@@ -92,21 +110,15 @@ terraform plan
 terraform apply
 ```
 
-To tear down all resources:
+This provisions all AWS resources: S3 buckets, Lambda functions, Glue jobs and crawlers, Athena workgroup, Step Functions state machine, and EventBridge Scheduler.
+
+To tear down everything:
 
 ```bash
 terraform destroy
 ```
 
-### 5. Upload data to S3
-
-```bash
-make upload-to-s3 bucket=yt-data-pipeline-bronze-<your-suffix>
-```
-
-This uploads all CSV and JSON files from the `data/` folder to the bronze S3 bucket, partitioned by region.
-
-### 6. Run Glue crawlers
+### 4. Run Glue crawlers
 
 After uploading, run both crawlers to populate the Glue Data Catalog:
 
@@ -115,26 +127,73 @@ aws glue start-crawler --name yt-data-pipeline-reference-data-crawler
 aws glue start-crawler --name yt-data-pipeline-raw-statistics-crawler
 ```
 
-Once complete, the tables will be available in Athena under the `yt-data-pipeline-db` database using the `yt-data-pipeline-workgroup` workgroup.
+Once complete, the tables will appear in Athena under the `yt-data-pipeline-db` database using the `yt-data-pipeline-workgroup` workgroup.
 
-### 7. Run the bronze → silver Glue job
+> **Note:** When running the ingestion Lambda for the first time, it automatically detects if the `raw_statistics` table is missing and triggers the crawler — no manual intervention needed for live data.
+
+### 5. Run the bronze → silver Glue job
 
 ```bash
 aws glue start-job-run --job-name yt-bronze-to-silver-job
 ```
 
-This reads the raw JSONL data from the bronze bucket, flattens and cleans it, and writes Parquet files to the silver bucket partitioned by region. The Glue catalog is updated automatically — the `silver_statistics` table will appear in Athena once the job completes.
-
-To check the job status:
+Reads CSV files from the bronze bucket, casts types, cleans data, deduplicates, and writes Parquet to the silver bucket partitioned by region. The `silver_statistics` table is created/updated in the Glue catalog automatically.
 
 ```bash
+# Check job status
 aws glue get-job-runs --job-name yt-bronze-to-silver-job \
   --query 'JobRuns[0].{Status:JobRunState, Error:ErrorMessage}'
 ```
 
+Logs are in CloudWatch under `/aws-glue/jobs/yt-bronze-to-silver-job` → `-driver` stream.
+
+### 6. Run the silver → gold Glue job
+
+```bash
+aws glue start-job-run --job-name yt-silver-to-gold-job
+```
+
+Joins `silver_statistics` with `silver_reference_data` to enrich videos with category names, then builds three gold aggregation tables:
+
+| Table | Description |
+|---|---|
+| `gold_trending_analytics` | Daily view/engagement totals per region |
+| `gold_channel_analytics` | Per-channel reach, ranking, trending history |
+| `gold_category_analytics` | Category share of views per region per day |
+
+```bash
+aws glue get-job-runs --job-name yt-silver-to-gold-job \
+  --query 'JobRuns[0].{Status:JobRunState, Error:ErrorMessage}'
+```
+
+## Pipeline orchestration
+
+The full pipeline is orchestrated by an AWS Step Functions state machine (`yt-data-pipeline-pipeline`) triggered automatically every 8 hours by EventBridge Scheduler starting from `pipeline_schedule_start_date`.
+
+**Execution flow:**
+
+1. **IngestFromYouTubeAPI** — Lambda fetches trending videos (CSV) and category data (JSON) for US, FR, JP, MX
+2. **WaitForS3Consistency** — 10-second wait for S3 eventual consistency
+3. **ProcessInParallel** — two branches run concurrently:
+   - `TransformReferenceData` — Lambda converts category JSON → Parquet in silver
+   - `RunBronzeToSilverGlueJob` — ETL cleans and transforms trending CSVs to silver
+4. **RunDataQualityChecks** — Lambda runs 9 checks (row count, nulls, schema, value ranges, freshness) via Athena
+5. **EvaluateDataQuality** — if all checks pass, continue; otherwise send SNS alert and stop
+6. **RunSilverToGoldGlueJob** — build the three gold aggregation tables
+7. **NotifySuccess** — SNS notification with execution ID
+
+To trigger a manual run:
+
+```bash
+aws stepfunctions start-execution \
+  --state-machine-arn $(aws stepfunctions list-state-machines \
+    --query "stateMachines[?name=='yt-data-pipeline-pipeline'].stateMachineArn" \
+    --output text)
+```
+
 ## Local development
 
-A Jupyter notebook that mirrors the Glue ETL job step-by-step is available at `notebooks/bronze_to_silver.ipynb`. It uses the same PySpark and Glue SDK code via the official AWS Glue Docker image.
+A Jupyter notebook mirroring the bronze → silver Glue job is at `notebooks/bronze_to_silver.ipynb`. It runs the same PySpark/Glue SDK code via the official AWS Glue Docker image:
 
 ```bash
 docker run -it \
@@ -147,4 +206,4 @@ docker run -it \
   /home/glue_user/jupyter/jupyter_start.sh
 ```
 
-Then open `http://localhost:8888` and navigate to `notebooks/bronze_to_silver.ipynb`.
+Open `http://localhost:8888` and navigate to `notebooks/bronze_to_silver.ipynb`.
