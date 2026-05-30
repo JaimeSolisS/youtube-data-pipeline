@@ -13,7 +13,12 @@ from pyspark.sql.types import (
     LongType,
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    stream=sys.stdout,
+    force=True,   # override PySpark's pre-configured logging handlers
+)
 logger = logging.getLogger(__name__)
 
 # ── Job Setup ────────────────────────────────────────────────────────────────
